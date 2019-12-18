@@ -1,6 +1,7 @@
 import idaapi
 import idautils
 import idc
+import ida_kernwin
 
 """MrsPicky - An IDAPython decompiler script that helps auditing calls
 to the memcpy() and memmove() functions.
@@ -65,18 +66,18 @@ class MemcpyLocation():
         self.problems = problems
 
 # -----------------------------------------------------------------------------
-class MrsPicky(idaapi.Choose):
+class MrsPicky(ida_kernwin.Choose):
     def __init__(self, title, flags=0, width=None, height=None, embedded=False, modal=False):
-        idaapi.Choose.__init__(
+        ida_kernwin.Choose.__init__(
             self,
             title,
-            [ ["caller", 20 | idaapi.CHCOL_FNAME],
-            ["function", 8 | idaapi.CHCOL_FNAME],
+            [ ["caller", 20 | ida_kernwin.Choose.CHCOL_PLAIN],
+            ["function", 8 | ida_kernwin.Choose.CHCOL_PLAIN],
             ["dst", 8],
             ["src", 8],
-            ["n", 8 | idaapi.CHCOL_DEC],
+            ["n", 8 | ida_kernwin.Choose.CHCOL_DEC],
             ["dst type", 8],
-            ["max n", 8 | idaapi.CHCOL_DEC],
+            ["max n", 8 | ida_kernwin.Choose.CHCOL_DEC],
             ["problems", 20] ],
             flags = flags,
             width = width,
@@ -192,7 +193,7 @@ class func_parser_t(idaapi.ctree_visitor_t):
                     var offsets are different than that of IDA's.
                     They can be converted using stkoff_vd2ida() and
                     stkoff_ida2vd()"""
-                    offs = var_dst.get_stkoff()
+                    offs = get_stkoff(var_dst)
                     dst_type = "stack+0x%x" % offs
 
                     """compute stack size and the max value for
@@ -256,10 +257,14 @@ def is_ida_version(requested):
     if not count:
         return False
 
-    for i in range(count):
+    for i in xrange(count):
         if int(kv[i]) < int(rv[i]):
             return False
     return True
+
+# -----------------------------------------------------------------------------
+def get_stkoff(lvar_locator):
+    return lvar_locator.location.stkoff() if lvar_locator.location.is_stkoff() else -1
 
 # -----------------------------------------------------------------------------
 def get_callers(name):
@@ -270,7 +275,7 @@ def get_callers(name):
 
 # -----------------------------------------------------------------------------
 if not idaapi.init_hexrays_plugin():
-    msg("This script requires the HexRays decompiler plugin.")
+    print "This script requires the HexRays decompiler plugin."
 else:
     func_list = []
     for name in MEMCPY_FAM:
@@ -278,7 +283,7 @@ else:
 
     func_list = set(func_list)
     nfuncs = len(func_list)
-    msg("Checking %d functions." % (nfuncs))
+    print "Checking %d functions." % (nfuncs)
 
     choser = MrsPicky("MrsPicky")
     choser.Show()
@@ -303,7 +308,7 @@ else:
             try:
                 cfunc = idaapi.decompile(ea, flags = idaapi.DECOMP_NO_WAIT)
             except idaapi.DecompilationFailure:
-                msg("Error decompiling function @ 0x%x" % ea)
+                print "Error decompiling function @ 0x%x" % ea
                 cfunc = None
 
             if cfunc:
@@ -326,7 +331,7 @@ else:
             try:
                 cfunc = idaapi.decompile(ea)
             except idaapi.DecompilationFailure:
-                msg("Error decompiling function @ 0x%x" % ea)
+                print "Error decompiling function @ 0x%x" % ea
                 cfunc = None
 
             if cfunc:
@@ -334,4 +339,4 @@ else:
                 fp.apply_to(cfunc.body, None)
                 choser.feed(fp.data)
 
-    msg("Done.")
+    print "Done."
